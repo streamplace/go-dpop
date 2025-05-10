@@ -91,13 +91,24 @@ func Parse(
 		return nil, errors.Join(ErrInvalidProof, ErrUnsupportedJWTType)
 	}
 
+	// Don't modify the original httpURL
+	httpURL = &(*httpURL)
 	// Strip the incoming URI of query and fragment according to point 9 in https://datatracker.ietf.org/doc/html/rfc9449#section-4.3
 	httpURL.RawQuery = ""
 	httpURL.Fragment = ""
 
+	// Spec-non-compliant hack to work around
+	// https://github.com/bluesky-social/atproto/issues/3846
+	claimURL, err := url.Parse(claims.URL)
+	if err != nil {
+		return nil, errors.Join(ErrInvalidProof, ErrIncorrectHTTPTarget)
+	}
+	claimURL.RawQuery = ""
+	claimURL.Fragment = ""
+
 	// Check that `htm` and `htu` claims match the HTTP method and URL of the current request.
 	// This satisfies point 8 and 9 in https://datatracker.ietf.org/doc/html/rfc9449#section-4.3
-	if httpMethod != claims.Method || httpURL.String() != claims.URL {
+	if httpMethod != claims.Method || httpURL.String() != claimURL.String() {
 		return nil, errors.Join(ErrInvalidProof, ErrIncorrectHTTPTarget)
 	}
 
